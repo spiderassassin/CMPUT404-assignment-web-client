@@ -41,13 +41,14 @@ class HTTPClient(object):
         return None
 
     def get_code(self, data):
-        return None
+    
+        return int(data.split()[1])
 
     def get_headers(self,data):
         return None
 
     def get_body(self, data):
-        return None
+        return data.split("\r\n")[len(data.split("\r\n")) - 1]
     
     def sendall(self, data):
         self.socket.sendall(data.encode('utf-8'))
@@ -68,13 +69,57 @@ class HTTPClient(object):
         return buffer.decode('utf-8')
 
     def GET(self, url, args=None):
-        code = 500
-        body = ""
+        url_info = urllib.parse.urlparse(url)
+        port = url_info.port
+        host = url_info.hostname
+        path = url_info.path
+        if not path:
+            path = "/"
+
+        if type(port) != int:
+            port = 80
+        message =  f"GET {path} HTTP/1.1\r\nHost: {host}\r\nAccept: */*\r\nConnection: close\r\n\r\n\r\n"
+        print(message)
+        
+        self.connect(host, port)
+        self.sendall(message)
+        data = self.recvall(self.socket)
+        
+        code = self.get_code(data)
+        body = self.get_body(data)
+        print(data)
+        
+        self.close()
         return HTTPResponse(code, body)
 
     def POST(self, url, args=None):
-        code = 500
-        body = ""
+        url_info = urllib.parse.urlparse(url)
+        port = url_info.port
+        host = url_info.hostname
+        path = url_info.path
+        if not path:
+            path = "/"
+
+        if type(port) != int:
+            port = 80
+
+        if(args != None):
+            input_message = urllib.parse.urlencode(args)
+            len_args = str(len(input_message))
+            message =  f"POST {path} HTTP/1.1\r\nHost: {host}\r\nAccept: */*\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: {len_args}\r\nConnection: close\r\n\r\n{urllib.parse.urlencode(args)}\r\n\r\n\r\n"
+        else:
+            message =  f"POST {path} HTTP/1.1\r\nHost: {host}\r\nAccept: */*\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: 0\r\nConnection: close\r\n\r\n\r\n\r\n\r\n"
+        
+        print(message)
+        
+        self.connect(host, port)
+        self.sendall(message)
+        data = self.recvall(self.socket)
+        
+        code = self.get_code(data)
+        body = self.get_body(data)
+        print(data)
+        self.close()
         return HTTPResponse(code, body)
 
     def command(self, url, command="GET", args=None):
@@ -90,6 +135,7 @@ if __name__ == "__main__":
         help()
         sys.exit(1)
     elif (len(sys.argv) == 3):
-        print(client.command( sys.argv[2], sys.argv[1] ))
+        print(client.command( sys.argv[2], sys.argv[1] ).body)
     else:
-        print(client.command( sys.argv[1] ))
+        print(client.command( sys.argv[1] ).body)
+
